@@ -384,6 +384,24 @@ En este modo la experiencia genera el QR en el navegador y muestra la dirección
 
 ---
 
+### Velocidad: cuándo usar cada modo
+
+El modo público es más lento porque cada mensaje viaja hasta el servidor del broker y vuelve. Medido desde Chile (ida y vuelta de un mensaje, mediana de 20):
+
+| Broker | Ida y vuelta |
+|---|---|
+| Local (`node server.js`, misma red) | ~7 ms |
+| `broker.emqx.io` (público, usado por Pages) | ~210 ms |
+| `broker.hivemq.com` (público) | ~240 ms |
+
+Esa diferencia se nota al tocar y oír el sonido, y no se corrige con código: depende de la distancia al servidor.
+
+- **Para trabajar, ensayar y presentar en vivo: modo local.** Es unas 30 veces más rápido. Usa `node server.js` con el teléfono en el hotspot.
+- **Para compartir, mostrar el proyecto o probar desde cualquier lugar: GitHub Pages.** Funciona sin instalar nada, pero con ~200 ms de retraso.
+- **Si necesitas Pages y menos retraso:** crea un broker propio en la región más cercana (HiveMQ Cloud, EMQX Cloud…) y ponlo en `config.js`. Mide el resultado con la latencia que muestra la cabecera de la experiencia.
+
+Pages y el broker local no se pueden mezclar para el teléfono: Pages usa HTTPS, y el navegador bloquea las conexiones inseguras desde una página HTTPS; un broker local con certificado autofirmado genera avisos y puede fallar en iPhone.
+
 ### Publicar en GitHub Pages, paso a paso
 
 El repositorio ya trae todo lo necesario: la carpeta `public/` es el sitio completo (incluye `vendor/mqtt.min.js`, así que no depende de internet para cargar MQTT), y `.github/workflows/pages.yml` lo publica solo.
@@ -493,4 +511,4 @@ En PowerShell: `$env:HOST_IP="172.20.10.2"; node server.js`. En bash: `HOST_IP=1
 | `npm start` falla en PowerShell | Política de ejecución de scripts. Usa `node server.js`. |
 | Varias IP en la lista y el QR apunta a la equivocada | Fuerza la correcta con `HOST_IP`. |
 | El puerto 8443 o 1883 está ocupado | Hay otra copia del servidor corriendo. Ciérrala, o cambia `PORT` / `MQTT_TCP`. |
-| Mucha latencia | Revisa la cifra en la cabecera. Con broker público suele ser mayor que local; prueba el modo local. |
+| Mucha latencia | Revisa la cifra en la cabecera. Con el broker público son ~200 ms; en modo local, ~7 ms. Ver "Velocidad: cuándo usar cada modo". |
