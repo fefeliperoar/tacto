@@ -4,6 +4,14 @@
 // Para usar tu propio broker (HiveMQ Cloud, EMQX, Mosquitto con WebSocket seguro…):
 //   window.TACTO_CONFIG = { broker: 'wss://mi-broker.example.com:8884/mqtt' };
 //
+// Brokers en la nube (EMQX Cloud, HiveMQ Cloud…) piden usuario y contraseña:
+//   window.TACTO_CONFIG = { broker: 'wss://xxxx.emqxsl.com:8084/mqtt', username: 'tacto', password: '…' };
+// OJO: en GitHub Pages este archivo es público. Crea un usuario solo para esto, con permiso limitado a tacto/#.
+//
 // Si la página del teléfono vive en otro sitio (por ejemplo, la del profesor), indica su dirección para el QR:
 //   window.TACTO_CONFIG = { phoneUrl: 'https://profesor.github.io/tacto/' };
-window.TACTO_CONFIG = window.TACTO_CONFIG || {};
+window.TACTO_CONFIG = {
+  broker: 'wss://b80fb118.ala.us-east-1.emqxsl.com:8084/mqtt',
+  username: 'fefelipe',
+  password: 'DPPI2026',
+};

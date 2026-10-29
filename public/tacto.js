@@ -40,6 +40,8 @@
     } catch {}
     return PUBLIC_BROKER;
   }
+  // usuario y contraseña (brokers en la nube): solo se usan con el broker definido en config.js
+  const auth = broker => (CFG.username && broker === CFG.broker ? { username: CFG.username, password: CFG.password || '' } : {});
   function loadMqtt() {
     if (g.mqtt) return Promise.resolve();
     const add = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
@@ -48,7 +50,7 @@
   async function open({ clientId, will } = {}) {
     await loadMqtt();
     const broker = await resolveBroker();
-    const client = g.mqtt.connect(broker, { clientId: clientId || 'c-' + rand(8), keepalive: 20, reconnectPeriod: 1000, connectTimeout: 8000, clean: true, will });
+    const client = g.mqtt.connect(broker, { clientId: clientId || 'c-' + rand(8), keepalive: 20, reconnectPeriod: 1000, connectTimeout: 8000, clean: true, will, ...auth(broker) });
     return { client, broker };
   }
 
@@ -125,7 +127,7 @@
     async connect() {
       await loadMqtt();
       this.broker = await resolveBroker();
-      const c = (this.client = g.mqtt.connect(this.broker, { clientId: 'exp-' + rand(8), keepalive: 20, reconnectPeriod: 1000, connectTimeout: 8000, clean: true }));
+      const c = (this.client = g.mqtt.connect(this.broker, { clientId: 'exp-' + rand(8), keepalive: 20, reconnectPeriod: 1000, connectTimeout: 8000, clean: true, ...auth(this.broker) }));
       c.on('connect', () => { this.setEstado('conectado'); c.subscribe(`tacto/${this.sala}/#`); });
       c.on('reconnect', () => this.setEstado('reconectando'));
       c.on('offline', () => this.setEstado('desconectado'));
