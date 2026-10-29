@@ -115,6 +115,7 @@ Para una prueba guiada con teléfonos reales, mira [PRUEBA_1.md](PRUEBA_1.md).
    ├─ index.html        Página del teléfono
    ├─ exp.html          Estructura de la experiencia
    ├─ exp.js            Lógica de la experiencia: salidas de audio/imagen, panel de conexiones
+   ├─ fisica.js         Física de materiales (tela, agua, squishy, remolino) y dibujo WebGL
    ├─ tacto.js          Librería compartida: conexión MQTT, salas, catálogo de canales
    ├─ ui.css            Estilos compartidos (variables de color, controles, foco)
    ├─ config.js         Configuración opcional (broker propio, dirección de la página del teléfono)
@@ -254,6 +255,23 @@ Estado de la conexión, broker usado, selector de teléfono (*automático* usa e
 
 - **Audio:** oscilador (onda a elección: sierra, triángulo, seno, cuadrada) o un **archivo de audio** que se repite en bucle. Un osciloscopio muestra la salida.
 - **Imagen:** una animación generada, o un **archivo de video**. Casilla para mostrar u ocultar los toques del teléfono.
+
+### Física del material
+
+La imagen (animación, video o cámara web) se dibuja en WebGL sobre una grilla de 96×54 puntos que los dedos deforman, como si tocaras la imagen. La deformación es temporal: se apaga sola en unos segundos ("recuperación", 2,5 s por defecto).
+
+| Material | Qué hace | Cómo responde al tacto |
+|---|---|---|
+| **Tela** | Se arrastra y se estira, ondula y vuelve. | El dedo arrastra la tela; la presión la hunde (sombra). Con varios dedos se estira entre ellos. |
+| **Agua** | Ondas que se expanden y se reflejan en los bordes. | Cada apoyo es una gota; al presionar emite anillos; al mover deja estela. |
+| **Squishy** | Gelatina: se abulta bajo el dedo y rebota. | Cuanto más presión, más se hunde; al soltar oscila y se asienta. |
+| **Remolino** | La imagen gira alrededor del dedo. | Mantener el toque aumenta el giro; mover arrastra el remolino. |
+
+Se elige con los botones de la tarjeta "Física del material" o con las teclas **1–5** (también en pantalla completa). Cuatro deslizadores ajustan el efecto: **intensidad**, **recuperación** (segundos), **tamaño del toque** y **relieve** (luz y sombra). Los cuatro aparecen como variables de salida en el grupo **Física** del panel de conexiones, así que se pueden controlar con un sensor (por ejemplo, `touch.f` → `fisica.intensidad`, o `ang.g` → `fisica.tamano`).
+
+La física usa por dedo: posición, desplazamiento y velocidad, presión (si el teléfono no la entrega, se asume 0,5) y diámetro del contacto (define el tamaño de la zona afectada). Si el navegador no permite WebGL, la imagen se muestra sin deformar.
+
+Para crear un material nuevo, edita `public/fisica.js`: agrega su apariencia en `MATERIALES` y su física en `step()`, y un botón en `exp.html`.
 
 ### Conexiones
 

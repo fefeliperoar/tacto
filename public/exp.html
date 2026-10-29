@@ -74,6 +74,22 @@
   #stageWrap.idle { cursor: none; } #stageWrap.idle #fsBtn { opacity: 0; }
   #stageWrap:fullscreen #fsBtn .fs-in, #stageWrap:-webkit-full-screen #fsBtn .fs-in { display: none; }
   #stageWrap:fullscreen #fsBtn .fs-out, #stageWrap:-webkit-full-screen #fsBtn .fs-out { display: inline; }
+  /* física: la imagen se dibuja en WebGL; los originales quedan invisibles pero siguen vivos (el video sigue reproduciendo) */
+  #vwrap #fx { width: 100%; height: 100%; display: block; }
+  #vwrap.fx canvas#gen, #vwrap.fx video#vid { display: block !important; visibility: hidden; position: absolute; inset: 0; }
+  #vwrap:not(.fx) #fx { display: none; }
+  #fxCard { margin-top: var(--sp-3); }
+  #fxMat { display: flex; flex-wrap: wrap; gap: 6px; }
+  #fxMat button { min-height: 36px; padding: 6px 12px; }
+  #fxMat button[aria-pressed="true"] { background: var(--neo); color: var(--neo-ink); border-color: var(--neo); font-weight: 700; }
+  kbd { font: 10px var(--mono); padding: 1px 5px; border: 1px solid currentColor; border-radius: 4px; opacity: .7; margin-right: 4px; }
+  #fxDesc { margin: 10px 0 6px; color: var(--fg); font-size: 13px; min-height: 1.4em; }
+  #fxSliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 16px; }
+  #fxSliders label { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; font-size: 12px; margin: 4px 0; }
+  #fxSliders input { grid-column: 1/3; width: 100%; } #fxSliders output { font: 12px var(--mono); color: var(--neo); grid-row: 1; grid-column: 2; }
+  .fxnote { color: var(--mut); font-size: 12px; margin: 8px 0 0; }
+  #fxToast { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3; background: rgba(10,7,16,.75); border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 16px; font-weight: 600; opacity: 0; transition: opacity 250ms; pointer-events: none; }
+  #fxToast.on { opacity: 1; }
 </style>
 </head>
 <body>
@@ -93,8 +109,9 @@
 
   <section id="center">
     <div id="stageWrap">
-      <div id="vwrap"><canvas id="gen" width="1280" height="720"></canvas><video id="vid" loop muted playsinline hidden></video></div>
+      <div id="vwrap"><canvas id="gen" width="1280" height="720"></canvas><video id="vid" loop muted playsinline hidden></video><canvas id="fx" hidden></canvas></div>
       <button id="fsBtn" type="button" aria-label="Pantalla completa" title="Pantalla completa (F)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="fs-in" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="fs-out" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" style="display:none"/></svg></button>
+      <div id="fxToast" role="status" aria-live="polite"></div>
       <div id="waiting" role="status"><b>Esperando un teléfono…</b><span>Escanea el QR de abajo, o arrastra el ratón sobre la imagen para probar.</span></div>
       <canvas id="overlay" aria-hidden="true"></canvas>
       <div id="stageHint">Arrastra aquí con el ratón para probar sin teléfono</div>
@@ -113,6 +130,24 @@
         <label><input type="checkbox" id="showTouch" checked> Mostrar los toques del teléfono</label>
         <label><input type="checkbox" id="mouseDev" checked> Ratón como teléfono (para probar)</label>
       </div>
+    </div>
+    <div class="card" id="fxCard">
+      <h2>Física del material</h2>
+      <div id="fxMat" role="group" aria-label="Material">
+        <button type="button" data-m="ninguno" aria-pressed="false"><kbd>1</kbd> Sin efecto</button>
+        <button type="button" data-m="tela" aria-pressed="false"><kbd>2</kbd> Tela</button>
+        <button type="button" data-m="agua" aria-pressed="false"><kbd>3</kbd> Agua</button>
+        <button type="button" data-m="squishy" aria-pressed="false"><kbd>4</kbd> Squishy</button>
+        <button type="button" data-m="remolino" aria-pressed="false"><kbd>5</kbd> Remolino</button>
+      </div>
+      <p id="fxDesc"></p>
+      <div id="fxSliders">
+        <label>Intensidad <input type="range" id="fx-intensidad" min="0" max="3" step="0.05"><output id="o-intensidad"></output></label>
+        <label>Recuperación (s) <input type="range" id="fx-recuperacion" min="0.5" max="5" step="0.1"><output id="o-recuperacion"></output></label>
+        <label>Tamaño del toque <input type="range" id="fx-tamano" min="0.5" max="2.5" step="0.05"><output id="o-tamano"></output></label>
+        <label>Relieve <input type="range" id="fx-relieve" min="0" max="2" step="0.05"><output id="o-relieve"></output></label>
+      </div>
+      <p class="fxnote">Toca el teléfono (o arrastra el ratón sobre la imagen). Las teclas <kbd>1</kbd>–<kbd>5</kbd> cambian de material, también en pantalla completa. Estos cuatro valores se pueden conectar a un sensor en el panel de conexiones (grupo "Física").</p>
     </div>
     <div class="card" id="joinBox">
       <img id="qr" alt="QR para el teléfono" hidden>
@@ -135,6 +170,7 @@
 
 <script src="config.js"></script>
 <script src="tacto.js"></script>
+<script src="fisica.js"></script>
 <script src="exp.js"></script>
 </body>
 </html>

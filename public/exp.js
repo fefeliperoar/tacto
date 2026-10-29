@@ -61,6 +61,12 @@ vt('tono', 'tono de color (°)', 0, 360, 0); vt('desenfoque', 'desenfoque (px)',
 vt('zoom', 'zoom', 0.5, 4, 1); vt('rotacion', 'rotación (°)', -180, 180, 0); vt('posx', 'posición X (%)', -50, 50, 0); vt('posy', 'posición Y (%)', -50, 50, 0);
 vt('opacidad', 'opacidad', 0, 1, 1); vt('velocidad', 'velocidad de reproducción', 0.1, 4, 1); vt('posicion', 'posición en el video (0–1)', 0, 1, null);
 
+// --- física del material: parámetros que se pueden conectar a un sensor ---
+tgt('fisica.intensidad', 'Física', 'intensidad de la deformación', 0, 3, 1, { apply: v => FX.set({ intensidad: v }) });
+tgt('fisica.recuperacion', 'Física', 'recuperación (s hasta volver a la normalidad)', 0.5, 5, 2.5, { apply: v => FX.set({ recuperacion: v }) });
+tgt('fisica.tamano', 'Física', 'tamaño del toque', 0.5, 2.5, 1, { apply: v => FX.set({ tamano: v }) });
+tgt('fisica.relieve', 'Física', 'relieve (luz y sombra)', 0, 2, 1, { apply: v => FX.set({ relieve: v }) });
+
 const vwrap = $('#vwrap'), gen = $('#gen'), gx = gen.getContext('2d'), vid = $('#vid');
 let videoMode = false, lastF = '', gt = 0, lastT = performance.now();
 function applyVideo() {
@@ -86,6 +92,40 @@ function drawGen(now) {
   gx.strokeStyle = 'rgba(255,255,255,.22)'; gx.lineWidth = 2; gx.beginPath();
   for (let x = -80; x < W + 80; x += 80) { const o = (gt * 40) % 80; gx.moveTo(x + o, 0); gx.lineTo(x + o, H); }
   gx.stroke();
+}
+
+// ============================ FÍSICA DEL MATERIAL ====================
+// La imagen (animación, video o cámara) se dibuja en WebGL sobre una grilla que los dedos deforman (ver fisica.js).
+const FX = Fisica.create($('#fx'));
+let curMat = 'ninguno', fxTime = performance.now(); const fst = {};
+function readFingers(dt) { // dedos del teléfono: posición, desplazamiento en este cuadro, velocidad, presión y tamaño
+  const out = [], n = tacto.get('touch.n') || 0;
+  const add = (id, x, y, f, d) => {
+    let s = fst[id]; const nuevo = !s; if (!s) s = fst[id] = { x, y, vx: 0, vy: 0 };
+    const dx = nuevo ? 0 : x - s.x, dy = nuevo ? 0 : y - s.y;
+    s.vx = s.vx * 0.6 + (dx / Math.max(dt, 1 / 120)) * 0.4; s.vy = s.vy * 0.6 + (dy / Math.max(dt, 1 / 120)) * 0.4; s.x = x; s.y = y;
+    out.push({ id, x, y, dx, dy, vx: s.vx, vy: s.vy, f: f > 0 ? f : 0.5, r: clamp(0.05 + (d || 40) / 900, 0.04, 0.3), nuevo }); // sin dato de presión: 0,5
+  };
+  if (n > 0) {
+    for (let i = 1; i <= 5; i++) {
+      const f = tacto.get(`t${i}.f`) || 0, d = tacto.get(`t${i}.d`) || 0, x = tacto.get(`t${i}.x`), y = tacto.get(`t${i}.y`);
+      if ((f > 0 || d > 0) && x != null && y != null) add(i, x, y, f, d);
+    }
+    if (!out.length) { const x = tacto.get('touch.x'), y = tacto.get('touch.y'); if (x != null && y != null) add(0, x, y, 0, 0); }
+  }
+  const vivos = new Set(out.map(o => o.id)); for (const k in fst) if (!vivos.has(+k)) delete fst[k];
+  return out;
+}
+function fxFrame(now) {
+  const dt = clamp((now - fxTime) / 1000, 0.001, 0.05); fxTime = now;
+  const on = FX.ok && curMat !== 'ninguno';
+  if (vwrap.classList.contains('fx') !== on) { vwrap.classList.toggle('fx', on); $('#fx').hidden = !on; }
+  if (!on) return;
+  const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+  FX.step(dt, readFingers(dt), w / h, now / 1000);
+  const src = videoMode ? vid : gen, sw = videoMode ? vid.videoWidth : gen.width, sh = videoMode ? vid.videoHeight : gen.height;
+  if (videoMode && vid.readyState < 2) return;
+  FX.render(src, sw, sh, videoMode && !!vid.srcObject && $('#mirror').checked, w, h);
 }
 
 // ============================ ENTRADAS ===============================
@@ -271,11 +311,30 @@ function toggleFs() {
   if (p && p.catch) p.catch(() => {}); // algunos navegadores incrustados bloquean la pantalla completa
 }
 fsBtn.onclick = toggleFs; fsBtn.addEventListener('pointerdown', e => e.stopPropagation());
+addEventListener('keydown', e => { const mk = ['ninguno', 'tela', 'agua', 'squishy', 'remolino'][+e.key - 1]; if (mk && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) setMat(mk, true); });
 addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) toggleFs(); });
 let idleT;
 const wake = () => { stage.classList.remove('idle'); clearTimeout(idleT); if (fsEl()) idleT = setTimeout(() => stage.classList.add('idle'), 2500); };
 stage.addEventListener('pointermove', wake);
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(n => document.addEventListener(n, () => { const on = !!fsEl(); fsBtn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Pantalla completa'); fsBtn.title = on ? 'Salir (Esc o F)' : 'Pantalla completa (F)'; wake(); }));
+
+// selector de material y deslizadores de física
+const FXP = { intensidad: 1, recuperacion: 2.5, tamano: 1, relieve: 1 };
+try { Object.assign(FXP, JSON.parse(ls('tacto.exp.fxp') || '{}')); } catch {}
+const fxToast = $('#fxToast'); let fxToastT;
+function setMat(m, aviso) {
+  if (!Fisica.MATERIALES[m]) m = 'tela';
+  curMat = m; FX.setMaterial(m); ls('tacto.exp.fx', m);
+  for (const b of document.querySelectorAll('#fxMat button')) b.setAttribute('aria-pressed', b.dataset.m === m);
+  $('#fxDesc').textContent = FX.ok ? Fisica.MATERIALES[m].desc : 'Este navegador no permite WebGL: la imagen se muestra sin deformar.';
+  if (aviso && FX.ok) { fxToast.textContent = Fisica.MATERIALES[m].nombre; fxToast.classList.add('on'); clearTimeout(fxToastT); fxToastT = setTimeout(() => fxToast.classList.remove('on'), 1400); }
+}
+for (const b of document.querySelectorAll('#fxMat button')) { b.onclick = () => setMat(b.dataset.m, true); b.disabled = !FX.ok; }
+for (const k in FXP) {
+  const id = 'fisica.' + k, el = $('#fx-' + k), out = $('#o-' + k); T[id].def = FXP[k]; FX.set({ [k]: FXP[k] }); el.value = FXP[k]; out.textContent = fmt(FXP[k]);
+  el.oninput = () => { const v = +el.value; FXP[k] = v; T[id].def = v; out.textContent = fmt(v); if (!(id in driven)) setT(id, v); ls('tacto.exp.fxp', JSON.stringify(FXP)); }; // si un sensor lo controla, este valor es el de reposo
+}
+setMat(ls('tacto.exp.fx') || 'tela', false);
 
 const ov = $('#overlay'), og = ov.getContext('2d'), sc = $('#scope'), sg = sc.getContext('2d'), wave = new Uint8Array(1024);
 function drawOverlay() {
@@ -318,9 +377,9 @@ for (const id in T) if (T[id].g === 'Imagen') LAST[id] = T[id].def;
 
 let frame = 0;
 (function loop(now) {
-  evalMaps(); applyVideo(); drawGen(now); drawOverlay(); drawScope();
+  evalMaps(); applyVideo(); drawGen(now); fxFrame(now); drawOverlay(); drawScope();
   if (++frame % 4 === 0) { updateMonitor(); updateMeters(); const d = tacto.pick(); $('#waiting').hidden = !!(d && d.online); }
   requestAnimationFrame(loop);
 })(performance.now());
 
-window.__tacto = { tacto, A, P, T, get maps() { return maps; } }; // para depurar desde la consola
+window.__tacto = { tacto, A, P, T, FX, get maps() { return maps; } }; // para depurar desde la consola
